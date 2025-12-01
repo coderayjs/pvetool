@@ -59,6 +59,7 @@ export default function AnalyzePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
   const shareImageRef = useRef<HTMLDivElement>(null);
   
@@ -79,7 +80,12 @@ export default function AnalyzePage() {
   });
 
   useEffect(() => {
-    // Listen for the beforeinstallprompt event
+    // Detect iOS
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setIsIOS(isIOSDevice);
+
+    // Listen for the beforeinstallprompt event (Android/Desktop)
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -91,6 +97,9 @@ export default function AnalyzePage() {
     // Check if app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setShowInstallButton(false);
+    } else if (isIOSDevice) {
+      // Show install button for iOS (they need to use Safari share menu)
+      setShowInstallButton(true);
     }
 
     return () => {
@@ -99,6 +108,12 @@ export default function AnalyzePage() {
   }, []);
 
   const handleInstallClick = async () => {
+    if (isIOS) {
+      // For iOS, show instructions
+      alert('To install this app on your iPhone:\n\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+      return;
+    }
+
     if (!deferredPrompt) return;
 
     deferredPrompt.prompt();
