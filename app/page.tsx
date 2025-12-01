@@ -182,7 +182,15 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 pt-32 md:pt-64 pb-8">
         <div className="text-center">
-          <p className="text-zinc-500 text-sm mb-4">Powered by <span className="text-yellow-300 font-bold">PVE</span></p>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="text-zinc-500 text-sm">Powered by</span>
+            <img 
+              src="/happy/pve.png" 
+              alt="PVE" 
+              className="h-5 w-auto object-contain"
+            />
+            <span className="text-yellow-300 font-bold">PVE</span>
+          </div>
           <div className="flex justify-center gap-4">
             <a href="https://x.com/PVElauncher" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-yellow-300 transition-colors">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -226,8 +234,8 @@ export default function Home() {
               </div>
               <a
                 href="https://pancakeswap.finance/swap?outputCurrency=0x35078DB252d16DB8aCca206498b4193a25DE4774"
-                target="_blank"
-                rel="noopener noreferrer"
+            target="_blank"
+            rel="noopener noreferrer"
                 className="px-4 py-2 rounded-md transition-colors duration-200 w-full flex items-center justify-center hover:opacity-90"
                 style={{ backgroundColor: '#36C3C9' }}
               >

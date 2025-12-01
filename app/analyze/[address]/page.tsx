@@ -598,7 +598,15 @@ export default function AnalyzePage() {
       {/* Footer */}
       <footer className="relative z-10 mt-16 pt-12 pb-8">
         <div className="text-center">
-          <p className="text-zinc-500 text-sm mb-4">Powered by <span className="text-yellow-300 font-bold">PVE </span></p>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="text-zinc-500 text-sm">Powered by</span>
+            <img 
+              src="/happy/pve.png" 
+              alt="PVE" 
+              className="h-5 w-auto object-contain"
+            />
+            <span className="text-yellow-300 font-bold">PVE</span>
+          </div>
           <div className="flex justify-center gap-4">
             <a href="https://x.com/PVElauncher" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-yellow-300 transition-colors">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">

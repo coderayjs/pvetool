@@ -175,7 +175,15 @@ export default function LeaderboardPage() {
 
         {/* Footer */}
         <div className="mt-12 text-center">
-          <p className="text-zinc-500 text-sm mb-4 font-mono">Powered by <span className="text-yellow-300 font-bold">PVE</span></p>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="text-zinc-500 text-sm font-mono">Powered by</span>
+            <img 
+              src="/happy/pve.png" 
+              alt="PVE" 
+              className="h-5 w-auto object-contain"
+            />
+            <span className="text-yellow-300 font-bold font-mono">PVE</span>
+          </div>
           <div className="flex items-center justify-center gap-4">
             <a
               href="https://x.com/PVElauncher"
