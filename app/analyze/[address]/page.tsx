@@ -177,19 +177,61 @@ export default function AnalyzePage() {
     
     setIsGenerating(true);
     try {
-      const canvas = await html2canvas(shareImageRef.current, {
+      // Wait a bit to ensure all images are loaded
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Ensure the element is visible (even if off-screen) for html2canvas
+      const element = shareImageRef.current;
+      if (!element) {
+        throw new Error('Image element not found');
+      }
+
+      // Detect mobile device
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      // Preload all images in the share element
+      const images = element.querySelectorAll('img');
+      await Promise.all(
+        Array.from(images).map((img: HTMLImageElement) => {
+          return new Promise((resolve, reject) => {
+            if (img.complete) {
+              resolve(null);
+            } else {
+              img.onload = () => resolve(null);
+              img.onerror = () => reject(new Error('Image failed to load'));
+              // Set timeout
+              setTimeout(() => resolve(null), 3000);
+            }
+          });
+        })
+      );
+
+      const canvas = await html2canvas(element, {
         backgroundColor: '#0a0a0a',
-        scale: 2,
+        scale: isMobile ? 1 : 2, // Lower scale on mobile to avoid memory issues
         logging: false,
+        useCORS: true,
+        allowTaint: false,
+        foreignObjectRendering: false,
+        removeContainer: true,
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          // Ensure images are loaded in cloned document
+          const clonedImages = clonedDoc.querySelectorAll('img');
+          clonedImages.forEach((img: HTMLImageElement) => {
+            img.crossOrigin = 'anonymous';
+          });
+        },
       });
       
-      const imageUrl = canvas.toDataURL('image/png');
+      const imageUrl = canvas.toDataURL('image/png', 0.9);
       setGeneratedImageUrl(imageUrl);
       setShowShareModal(false);
       setShowImagePreview(true);
     } catch (err) {
       console.error('Error generating image:', err);
-      alert('Failed to generate image. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Failed to generate image. ${errorMessage}\n\nPlease try:\n- Refreshing the page\n- Using a different browser\n- Checking your internet connection`);
     } finally {
       setIsGenerating(false);
     }
@@ -642,7 +684,7 @@ export default function AnalyzePage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="@yourusername"
+                placeholder="@degenuser"
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500"
                 autoFocus
               />
@@ -662,7 +704,7 @@ export default function AnalyzePage() {
                 disabled={!username.trim() || isGenerating}
                 className="flex-1 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-black rounded-lg transition-colors font-semibold"
               >
-                {isGenerating ? 'Generating...' : 'Generate Image'}
+                {isGenerating ? 'Generating...' : 'show'}
               </button>
             </div>
           </div>
