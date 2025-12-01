@@ -87,13 +87,14 @@ export default function Home() {
       </div>
 
       {/* Top Banner */}
-      <div className="sticky top-0 z-50 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
+      <div className="sticky top-0 z-50 w-full py-3 px-4 flex items-center justify-between" style={{ backgroundColor: '#100037' }}>
         <p className="text-yellow-300 font-bold font-mono text-sm">Track Tokens Powered by PVE Launcher</p>
         <div className="flex items-center gap-2">
           {showInstallButton && (
             <button
               onClick={handleInstallClick}
-              className="text-yellow-300 hover:text-yellow-400 font-bold text-sm transition-colors bg-purple-900 px-4 py-1 rounded flex items-center gap-2"
+              className="text-yellow-300 hover:text-yellow-400 font-bold text-sm transition-colors px-4 py-1 rounded flex items-center gap-2"
+              style={{ backgroundColor: '#100037' }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -111,7 +112,7 @@ export default function Home() {
           <div className="text-center mb-3">
             <div className="flex items-center justify-center gap-3">
               <h1 className="text-3xl md:text-4xl font-bold text-white">PVE Tool</h1>
-              <span className="inline-block bg-purple-700 border border-yellow-300/30 text-yellow-300 text-xs px-3 py-1 rounded-full font-bold">BETA</span>
+              <span className="inline-block border border-yellow-300/30 text-yellow-300 text-xs px-3 py-1 rounded-full font-bold" style={{ backgroundColor: '#100037' }}>BETA</span>
             </div>
           </div>
         </div>
@@ -150,7 +151,8 @@ export default function Home() {
             <button
               type="submit"
               disabled={isLoading || !walletAddress.trim()}
-              className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-purple-900 font-bold px-3 py-2 md:px-6 md:py-3 rounded-md transition-colors flex items-center gap-1.5 md:gap-2 text-xs md:text-sm flex-shrink-0"
+              className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-zinc-700 disabled:text-zinc-500 font-bold px-3 py-2 md:px-6 md:py-3 rounded-md transition-colors flex items-center gap-1.5 md:gap-2 text-xs md:text-sm flex-shrink-0"
+              style={{ color: '#100037' }}
             >
               {isLoading ? (
                 <>
@@ -221,7 +223,7 @@ export default function Home() {
       {/* Movement Coin Banner Ad - Fixed Bottom Right */}
       {showBanner && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm">
-          <div className="bg-gradient-to-r from-purple-600/30 to-yellow-500/20 backdrop-blur-md border border-yellow-300/30 rounded-lg p-4 hover:border-yellow-300/50 transition-all duration-300 shadow-lg relative">
+          <div className="backdrop-blur-md border border-yellow-300/30 rounded-lg p-4 hover:border-yellow-300/50 transition-all duration-300 shadow-lg relative" style={{ background: 'linear-gradient(to right, rgba(16, 0, 55, 0.3), rgba(234, 179, 8, 0.2))' }}>
             <button
               onClick={() => setShowBanner(false)}
               className="absolute -top-2 -right-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full w-6 h-6 flex items-center justify-center transition-colors duration-200"

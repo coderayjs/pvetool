@@ -177,61 +177,19 @@ export default function AnalyzePage() {
     
     setIsGenerating(true);
     try {
-      // Wait a bit to ensure all images are loaded
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Ensure the element is visible (even if off-screen) for html2canvas
-      const element = shareImageRef.current;
-      if (!element) {
-        throw new Error('Image element not found');
-      }
-
-      // Detect mobile device
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      // Preload all images in the share element
-      const images = element.querySelectorAll('img');
-      await Promise.all(
-        Array.from(images).map((img: HTMLImageElement) => {
-          return new Promise((resolve, reject) => {
-            if (img.complete) {
-              resolve(null);
-            } else {
-              img.onload = () => resolve(null);
-              img.onerror = () => reject(new Error('Image failed to load'));
-              // Set timeout
-              setTimeout(() => resolve(null), 3000);
-            }
-          });
-        })
-      );
-
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(shareImageRef.current, {
         backgroundColor: '#0a0a0a',
-        scale: isMobile ? 1 : 2, // Lower scale on mobile to avoid memory issues
+        scale: 2,
         logging: false,
-        useCORS: true,
-        allowTaint: false,
-        foreignObjectRendering: false,
-        removeContainer: true,
-        imageTimeout: 15000,
-        onclone: (clonedDoc) => {
-          // Ensure images are loaded in cloned document
-          const clonedImages = clonedDoc.querySelectorAll('img');
-          clonedImages.forEach((img: HTMLImageElement) => {
-            img.crossOrigin = 'anonymous';
-          });
-        },
       });
       
-      const imageUrl = canvas.toDataURL('image/png', 0.9);
+      const imageUrl = canvas.toDataURL('image/png');
       setGeneratedImageUrl(imageUrl);
       setShowShareModal(false);
       setShowImagePreview(true);
     } catch (err) {
       console.error('Error generating image:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      alert(`Failed to generate image. ${errorMessage}\n\nPlease try:\n- Refreshing the page\n- Using a different browser\n- Checking your internet connection`);
+      alert('Failed to generate image. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -265,7 +223,7 @@ export default function AnalyzePage() {
       </div>
 
       {/* Top header bar */}
-      <div className="sticky top-0 z-50 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
+      <div className="sticky top-0 z-50 w-full py-3 px-4 flex items-center justify-between" style={{ backgroundColor: '#100037' }}>
         <p className="text-yellow-300 font-bold font-mono text-sm">
           Track Tokens Powered by PVE Launcher
         </p>
@@ -273,7 +231,8 @@ export default function AnalyzePage() {
           {showInstallButton && (
             <button
               onClick={handleInstallClick}
-              className="text-yellow-300 hover:text-yellow-100 font-semibold text-xs transition-colors bg-purple-900 px-3 py-1 rounded-md flex items-center gap-1.5"
+              className="text-yellow-300 hover:text-yellow-100 font-semibold text-xs transition-colors px-3 py-1 rounded-md flex items-center gap-1.5"
+              style={{ backgroundColor: '#100037' }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -318,7 +277,7 @@ export default function AnalyzePage() {
                     <p className="text-sm md:text-base font-bold font-mono text-white">
                       {result.tokenSymbol || "Token"}
                     </p>
-                    <span className="text-[10px] px-2 py-0.5 bg-purple-700/50 text-yellow-300 rounded-full font-medium font-mono">
+                    <span className="text-[10px] px-2 py-0.5 text-yellow-300 rounded-full font-medium font-mono" style={{ backgroundColor: 'rgba(16, 0, 55, 0.5)' }}>
                       {result.tokenName || "PVE Token"}
                     </span>
                   </div>
@@ -1038,7 +997,7 @@ export default function AnalyzePage() {
       {/* Movement Coin Banner Ad - Fixed Bottom Right */}
       {showBanner && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm">
-          <div className="bg-gradient-to-r from-purple-600/30 to-yellow-500/20 backdrop-blur-md border border-yellow-300/30 rounded-lg p-4 hover:border-yellow-300/50 transition-all duration-300 shadow-lg relative">
+          <div className="backdrop-blur-md border border-yellow-300/30 rounded-lg p-4 hover:border-yellow-300/50 transition-all duration-300 shadow-lg relative" style={{ background: 'linear-gradient(to right, rgba(16, 0, 55, 0.3), rgba(234, 179, 8, 0.2))' }}>
             <button
               onClick={() => setShowBanner(false)}
               className="absolute -top-2 -right-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full w-6 h-6 flex items-center justify-center transition-colors duration-200"

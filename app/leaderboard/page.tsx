@@ -72,11 +72,12 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Top Banner */}
-      <div className="sticky top-0 z-50 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
+      <div className="sticky top-0 z-50 w-full py-3 px-4 flex items-center justify-between" style={{ backgroundColor: '#100037' }}>
         <p className="text-yellow-300 font-bold font-mono text-sm">Track Tokens Powered by PVE Launcher</p>
         <button
           onClick={() => router.push('/')}
-          className="text-yellow-300 hover:text-yellow-100 font-semibold text-xs transition-colors bg-purple-900 px-4 py-1 rounded-md font-mono"
+          className="text-yellow-300 hover:text-yellow-100 font-semibold text-xs transition-colors px-4 py-1 rounded-md font-mono"
+          style={{ backgroundColor: '#100037' }}
         >
           Back →
         </button>
@@ -237,7 +238,7 @@ export default function LeaderboardPage() {
       {/* Movement Coin Banner Ad - Fixed Bottom Right */}
       {showBanner && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm">
-          <div className="bg-gradient-to-r from-purple-600/30 to-yellow-500/20 backdrop-blur-md border border-yellow-300/30 rounded-lg p-4 hover:border-yellow-300/50 transition-all duration-300 shadow-lg relative">
+          <div className="backdrop-blur-md border border-yellow-300/30 rounded-lg p-4 hover:border-yellow-300/50 transition-all duration-300 shadow-lg relative" style={{ background: 'linear-gradient(to right, rgba(16, 0, 55, 0.3), rgba(234, 179, 8, 0.2))' }}>
             <button
               onClick={() => setShowBanner(false)}
               className="absolute -top-2 -right-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full w-6 h-6 flex items-center justify-center transition-colors duration-200"

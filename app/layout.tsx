@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Oxanium } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const oxanium = Oxanium({
+  variable: "--font-oxanium",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +33,7 @@ export const metadata: Metadata = {
     images: ["/happy/pve.png"],
   },
   viewport: "width=device-width, initial-scale=1",
-  themeColor: "#8B5CF6",
+  themeColor: "#100037",
   icons: {
     icon: "/happy/pve.png",
     apple: "/happy/pve.png",
@@ -59,7 +55,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="PVE Tool" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${oxanium.variable} antialiased`}
+        style={{ fontFamily: 'var(--font-oxanium), Helvetica, Arial, sans-serif' }}
       >
         {children}
       </body>
