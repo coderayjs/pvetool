@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "PVE Tool - Check How Jeet You Are",
-    description: "Analyze your BNB Chain trading activity and see if you're diamond hands or paper hands",
+    description: "Analyze your PVE launched tokens on BNB Chain for trading activity and see if you're diamond hands or paper hands",
     images: ["/happy/pve.png"],
   },
   viewport: "width=device-width, initial-scale=1",
