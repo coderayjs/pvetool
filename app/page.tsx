@@ -72,7 +72,7 @@ export default function Home() {
       </div>
 
       {/* Top Banner */}
-      <div className="relative z-10 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
+      <div className="sticky top-0 z-50 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
         <p className="text-yellow-300 font-bold font-mono text-sm">Track Tokens Powered by PVE Launcher</p>
         <div className="flex items-center gap-2">
           {showInstallButton && (
@@ -86,9 +86,6 @@ export default function Home() {
               Install App
             </button>
           )}
-          <button className="text-yellow-300 hover:text-yellow-400 font-bold text-sm transition-colors bg-purple-900 px-4 py-1 rounded">
-            Get Started →
-          </button>
         </div>
       </div>
 

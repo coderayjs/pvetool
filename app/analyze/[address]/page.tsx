@@ -208,7 +208,7 @@ export default function AnalyzePage() {
       </div>
 
       {/* Top header bar */}
-      <div className="relative z-10 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
+      <div className="sticky top-0 z-50 w-full bg-purple-700 py-3 px-4 flex items-center justify-between">
         <p className="text-yellow-300 font-bold font-mono text-sm">
           Track Tokens Powered by PVE Launcher
         </p>
@@ -224,12 +224,6 @@ export default function AnalyzePage() {
               Install
             </button>
           )}
-          <button
-            onClick={() => router.push("/")}
-            className="text-yellow-300 hover:text-yellow-100 font-semibold text-xs transition-colors bg-purple-900 px-4 py-1 rounded-md"
-          >
-            Get Started →
-          </button>
         </div>
       </div>
 
