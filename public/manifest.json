@@ -1,0 +1,31 @@
+{
+  "name": "PVE Tool - Track Your Token PNL",
+  "short_name": "PVE Tool",
+  "description": "Analyze your BNB Chain trading activity and see if you're diamond hands or paper hands",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#8B5CF6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/happy/pve.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/happy/pve.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/happy/pve.png",
+      "sizes": "624x624",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
+
