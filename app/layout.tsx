@@ -38,6 +38,11 @@ export const metadata: Metadata = {
   },
   viewport: "width=device-width, initial-scale=1",
   themeColor: "#8B5CF6",
+  icons: {
+    icon: "/happy/pve.png",
+    apple: "/happy/pve.png",
+    shortcut: "/happy/pve.png",
+  },
 };
 
 export default function RootLayout({
