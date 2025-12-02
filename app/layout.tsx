@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     description: "Analyze your PVE launched tokens on BNB Chain for trading activity and see if you're diamond hands or paper hands",
     images: ["/happy/pve.png"],
   },
-  viewport: "width=device-width, initial-scale=1",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes",
   themeColor: "#100037",
   icons: {
     icon: "/happy/pve.png",

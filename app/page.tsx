@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ethers } from 'ethers';
 import OutlinedButton from './components/OutlinedButton';
 import Header from './components/Header';
 import MovementCoinBanner from './components/MovementCoinBanner';
@@ -9,15 +10,46 @@ import MovementCoinBanner from './components/MovementCoinBanner';
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
+
+  const validateAddress = (address: string): boolean => {
+    if (!address.trim()) return false;
+    return ethers.isAddress(address);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setWalletAddress(value);
+    
+    // Clear error when user starts typing
+    if (error) setError('');
+    
+    // Optional: Real-time validation (can be removed if too strict)
+    // if (value.trim() && !validateAddress(value)) {
+    //   setError('Invalid wallet address');
+    // }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!walletAddress.trim()) return;
     
+    const trimmedAddress = walletAddress.trim();
+    
+    if (!trimmedAddress) {
+      setError('Please enter a wallet address');
+      return;
+    }
+    
+    if (!validateAddress(trimmedAddress)) {
+      setError('Invalid wallet address. Please enter a valid BNB wallet address.');
+      return;
+    }
+    
+    setError('');
     setIsLoading(true);
     // Navigate to results page
-    router.push(`/analyze/${walletAddress}`);
+    router.push(`/analyze/${trimmedAddress}`);
   };
 
   return (
@@ -66,7 +98,9 @@ export default function Home() {
 
         {/* Search Form */}
         <form onSubmit={handleSearch} className="w-full max-w-lg mb-8 px-4 md:px-0">
-          <div className="flex items-center gap-2 md:gap-4 bg-zinc-900/20 backdrop-blur-md rounded-lg p-1.5 md:p-2 border border-zinc-700/30 shadow-lg">
+          <div className={`flex items-center gap-2 md:gap-4 bg-zinc-900/20 backdrop-blur-md rounded-lg p-1.5 md:p-2 border shadow-lg transition-colors ${
+            error ? 'border-red-500/50' : 'border-zinc-700/30'
+          }`}>
             <div className="flex-1 flex items-center gap-1.5 md:gap-2 px-2 md:px-3">
               <svg 
                 className="w-4 h-4 md:w-5 md:h-5 text-zinc-400 flex-shrink-0" 
@@ -84,10 +118,11 @@ export default function Home() {
               <input
                 type="text"
                 value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="Enter BNB wallet address"
-                className="flex-1 bg-transparent outline-none text-white placeholder-zinc-400 font-mono text-xs md:text-sm min-w-0"
+                onChange={handleInputChange}
+                placeholder="Enter BNB wallet address (0x...)"
+                className="flex-1 bg-transparent outline-none text-white placeholder-zinc-400 font-mono text-base md:text-sm min-w-0"
                 disabled={isLoading}
+                style={{ fontSize: '16px' }} // Prevent mobile zoom (must be >= 16px)
               />
             </div>
             <button
@@ -114,6 +149,11 @@ export default function Home() {
               )}
             </button>
           </div>
+          {error && (
+            <div className="mt-2 text-red-400 text-xs md:text-sm font-mono text-center">
+              {error}
+            </div>
+          )}
         </form>
 
         {/* Description */}

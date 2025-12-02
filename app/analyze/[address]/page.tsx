@@ -662,6 +662,7 @@ export default function AnalyzePage() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="@degenuser"
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder-zinc-500 focus:outline-none focus:border-white font-mono"
+                  style={{ fontSize: '16px' }} // Prevent mobile zoom (must be >= 16px)
                   autoFocus
                 />
               </div>
