@@ -6,7 +6,6 @@ import Header from '../components/Header';
 import LeaderboardTable from '../components/LeaderboardTable';
 import LeaderboardSkeleton from '../components/LeaderboardSkeleton';
 import GradientButton from '../components/GradientButton';
-import MovementCoinBanner from '../components/MovementCoinBanner';
 
 interface LeaderboardEntry {
   rank: number;
@@ -300,8 +299,6 @@ export default function LeaderboardPage() {
         }
       `}</style>
 
-      {/* Movement Coin Banner Ad - Fixed Bottom Right */}
-      <MovementCoinBanner />
     </div>
   );
 }

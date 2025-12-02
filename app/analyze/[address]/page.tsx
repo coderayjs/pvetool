@@ -7,7 +7,6 @@ import Header from '../../components/Header';
 import GradientButton from '../../components/GradientButton';
 import OutlinedButton from '../../components/OutlinedButton';
 import AnalyzeSkeleton from '../../components/AnalyzeSkeleton';
-import MovementCoinBanner from '../../components/MovementCoinBanner';
 
 interface AnalysisResult {
   address: string;
@@ -61,6 +60,7 @@ export default function AnalyzePage() {
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [username, setUsername] = useState('');
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const shareImageRef = useRef<HTMLDivElement>(null);
@@ -666,12 +666,47 @@ export default function AnalyzePage() {
                   autoFocus
                 />
               </div>
+              <div className="mb-4">
+                <label className="block text-sm text-zinc-400 mb-2">Upload Image (Optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setUploadedImage(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-white file:text-zinc-900 hover:file:bg-zinc-100 cursor-pointer"
+                />
+                {uploadedImage && (
+                  <div className="mt-3 relative">
+                    <img
+                      src={uploadedImage}
+                      alt="Uploaded"
+                      className="w-full max-h-32 object-contain rounded-lg border border-zinc-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setUploadedImage(null)}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-3">
                 <OutlinedButton
                   text="Cancel"
                   onClick={() => {
                     setShowShareModal(false);
                     setUsername('');
+                    setUploadedImage(null);
                   }}
                   borderColor="var(--primary-color)"
                   className="flex-1"
@@ -810,6 +845,53 @@ export default function AnalyzePage() {
                 />
               </svg>
             </div>
+
+            {/* Center on Diagonal Line - Uploaded Image */}
+            {uploadedImage && (
+              <>
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '330px', // Center of the diagonal line (660/2 = 330)
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 4
+                }}>
+                  <img
+                    src={uploadedImage}
+                    alt="User uploaded"
+                    style={{
+                      maxWidth: '200px',
+                      maxHeight: '200px',
+                      objectFit: 'contain',
+                      borderRadius: '12px',
+                      border: '3px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+                    }}
+                  />
+                </div>
+                {/* Congratulations Text - Positioned separately below image */}
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(50% + 120px)', // Below the image (50% + half image height + gap)
+                  left: '330px',
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 4
+                }}>
+                  <div style={{
+                    color: '#ffffff',
+                    fontSize: '48px',
+                    fontWeight: 400,
+                    fontFamily: "'Caveat', 'Kalam', 'Comic Sans MS', cursive",
+                    letterSpacing: '0.05em',
+                    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+                    transform: 'rotate(-3deg)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    Congratulations!
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Right Side - Trading Data */}
             <div style={{
@@ -985,8 +1067,6 @@ export default function AnalyzePage() {
         }
       `}</style>
 
-      {/* Movement Coin Banner Ad - Fixed Bottom Right */}
-      <MovementCoinBanner />
     </div>
   );
 }
