@@ -3,19 +3,11 @@ import { ethers } from 'ethers';
 
 // CONFIGURATION - Update these with your contract details
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x35078DB252d16DB8aCca206498b4193a25DE4774';
-const BSC_RPC_URL = process.env.BSC_RPC_URL || 'https://bsc-dataseed1.binance.org';
 const BSCSCAN_API_KEY = process.env.BSCSCAN_API_KEY || '';
+const ETHERSCAN_API_BASE = 'https://api.etherscan.io/v2/api?chainid=56';
 
 // DexScreener API URL
 const DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex';
-
-// ERC20 ABI for token balance
-const ERC20_ABI = [
-  'function balanceOf(address owner) view returns (uint256)',
-  'function decimals() view returns (uint8)',
-  'function symbol() view returns (string)',
-  'function name() view returns (string)',
-];
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,23 +29,50 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Initialize provider
-    const provider = new ethers.JsonRpcProvider(BSC_RPC_URL);
-    
-    // Get token contract
-    const tokenContract = new ethers.Contract(
-      CONTRACT_ADDRESS,
-      ERC20_ABI,
-      provider
-    );
+    // Fetch token info using Etherscan API
+    let balance = BigInt(0);
+    let decimals = 18;
+    let symbol = 'TOKEN';
+    let name = 'Token';
 
-    // Fetch token info
-    const [balance, decimals, symbol, name] = await Promise.all([
-      tokenContract.balanceOf(address),
-      tokenContract.decimals(),
-      tokenContract.symbol(),
-      tokenContract.name(),
-    ]);
+    try {
+      // Fetch token balance
+      const balanceUrl = `${ETHERSCAN_API_BASE}&module=account&action=tokenbalance&contractaddress=${CONTRACT_ADDRESS}&address=${address}&apikey=${BSCSCAN_API_KEY}`;
+      const balanceResponse = await fetch(balanceUrl);
+      const balanceData = await balanceResponse.json();
+      
+      if (balanceData.status === '1' && balanceData.result) {
+        balance = BigInt(balanceData.result);
+      }
+
+      // Fetch token info (symbol, name, decimals)
+      const tokenInfoUrl = `${ETHERSCAN_API_BASE}&module=token&action=tokeninfo&contractaddress=${CONTRACT_ADDRESS}&apikey=${BSCSCAN_API_KEY}`;
+      const tokenInfoResponse = await fetch(tokenInfoUrl);
+      const tokenInfoData = await tokenInfoResponse.json();
+      
+      console.log('Token info API response:', JSON.stringify(tokenInfoData, null, 2));
+      
+      if (tokenInfoData.status === '1' && tokenInfoData.result) {
+        // Etherscan v2 API might return result as array or object
+        const tokenInfo = Array.isArray(tokenInfoData.result) 
+          ? tokenInfoData.result[0] 
+          : tokenInfoData.result;
+        
+        if (tokenInfo) {
+          symbol = tokenInfo.symbol || symbol;
+          name = tokenInfo.name || name;
+          decimals = parseInt(tokenInfo.decimals || '18');
+          console.log(`Fetched token info: ${symbol} (${name}), decimals: ${decimals}`);
+        }
+      } else {
+        console.warn('Token info API returned error:', tokenInfoData.message || 'Unknown error');
+        // Fallback: Extract token info from transaction data if available
+        // This will be done after we fetch transactions
+      }
+    } catch (error) {
+      console.error('Error fetching token info from Etherscan API:', error);
+      // Fallback: try to get decimals from a transaction if available
+    }
 
     // Format balance
     const formattedBalance = ethers.formatUnits(balance, decimals);
@@ -135,7 +154,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch transactions from BSCScan
+    // Fetch transactions from Etherscan API
     let transactions = [];
     let buys: any[] = [];
     let sells: any[] = [];
@@ -146,190 +165,157 @@ export async function GET(request: NextRequest) {
 
     try {
       if (BSCSCAN_API_KEY) {
-        // Use Etherscan v2 API format for BSC (chainid 56)
-        const apiUrl = `https://api.etherscan.io/v2/api?chainid=56&module=account&action=tokentx&contractaddress=${CONTRACT_ADDRESS}&address=${address}&page=1&offset=100&sort=asc&apikey=${BSCSCAN_API_KEY}`;
-        
-        console.log('Fetching transactions from:', apiUrl);
+        // Fetch token transactions (limit to 100)
+        const apiUrl = `${ETHERSCAN_API_BASE}&module=account&action=tokentx&contractaddress=${CONTRACT_ADDRESS}&address=${address}&page=1&offset=100&sort=asc&apikey=${BSCSCAN_API_KEY}`;
         
         const txResponse = await fetch(apiUrl);
         const txData = await txResponse.json();
 
-        console.log('BscScan API Response:', JSON.stringify(txData, null, 2));
-
         if (txData.status === '1' && Array.isArray(txData.result)) {
           transactions = txData.result;
-          console.log(`Found ${transactions.length} transactions`);
+        } else {
+          transactions = [];
+        }
 
-          // Separate buys and sells with timestamps
+        console.log(`Found ${transactions.length} token transactions`);
+
+        // Fetch normal BNB transactions to get actual BNB values for swaps (limit to 100)
+        const bnbTxUrl = `${ETHERSCAN_API_BASE}&module=account&action=txlist&address=${address}&page=1&offset=100&sort=asc&apikey=${BSCSCAN_API_KEY}`;
+        const bnbTxResponse = await fetch(bnbTxUrl);
+        const bnbTxData = await bnbTxResponse.json();
+        
+        let allBnbTxs: any[] = [];
+        if (bnbTxData.status === '1' && Array.isArray(bnbTxData.result)) {
+          allBnbTxs = bnbTxData.result;
+        }
+
+        // Create a map of transaction hash to BNB value for quick lookup
+        const txHashToBnbValue = new Map<string, number>();
+        allBnbTxs.forEach((tx: any) => {
+          if (tx.hash && tx.value && tx.value !== '0') {
+            const bnbValue = parseFloat(ethers.formatEther(tx.value));
+            // For swaps, the BNB value is what was sent FROM the wallet
+            if (tx.from && tx.from.toLowerCase() === address.toLowerCase()) {
+              txHashToBnbValue.set(tx.hash.toLowerCase(), bnbValue);
+            }
+          }
+        });
+
+        // Fallback: Extract token info from first transaction if API didn't return it
+        if ((symbol === 'TOKEN' || name === 'Token') && transactions.length > 0) {
+          const firstTx = transactions[0];
+          if (firstTx.tokenSymbol && firstTx.tokenSymbol !== '') {
+            symbol = firstTx.tokenSymbol;
+          }
+          if (firstTx.tokenName && firstTx.tokenName !== '') {
+            name = firstTx.tokenName;
+          }
+          if (firstTx.tokenDecimal && firstTx.tokenDecimal !== '') {
+            decimals = parseInt(firstTx.tokenDecimal || '18');
+          }
+          console.log(`Extracted token info from transaction: ${symbol} (${name}), decimals: ${decimals}`);
+        }
+
+        // Separate buys and sells with timestamps and match with BNB values
           transactions.forEach((tx: any) => {
-            const value = parseFloat(ethers.formatUnits(tx.value, decimals));
-            const timestamp = parseInt(tx.timeStamp) * 1000; // Convert to ms
+          const value = parseFloat(ethers.formatUnits(tx.value || '0', decimals));
+          const timestamp = parseInt(tx.timeStamp) * 1000;
+          const txHash = tx.hash.toLowerCase();
             
-            if (tx.to.toLowerCase() === address.toLowerCase()) {
+          if (tx.to && tx.to.toLowerCase() === address.toLowerCase() && 
+              tx.from && tx.from.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) {
               // This is a buy (receiving tokens)
-              buys.push({ amount: value, timestamp, tx: tx.hash });
+            const bnbValue = txHashToBnbValue.get(txHash) || 0;
+            buys.push({ amount: value, timestamp, tx: tx.hash, bnbValue });
               totalBought += value;
-            } else if (tx.from.toLowerCase() === address.toLowerCase()) {
+            if (bnbValue > 0) {
+              totalBoughtBNB += bnbValue;
+            }
+          } else if (tx.from && tx.from.toLowerCase() === address.toLowerCase() &&
+                     tx.to && tx.to.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) {
               // This is a sell (sending tokens)
               sells.push({ amount: value, timestamp, tx: tx.hash });
               totalSold += value;
             }
           });
           
-          console.log(`Processed: ${buys.length} buys, ${sells.length} sells`);
-          
-          // Fetch BNB values for buy and sell transactions
-          if (buys.length > 0 || sells.length > 0) {
-            try {
-              // Fetch transaction details for buy transactions to get BNB value spent
-              // For DEX swaps, BNB spent might be in internal transactions or the main transaction value
-              for (const buy of buys) {
-                try {
-                  let bnbSpent = 0;
-                  
-                  // First, try to get the main transaction value
-                  const txDetailUrl = `https://api.etherscan.io/v2/api?chainid=56&module=proxy&action=eth_getTransactionByHash&txhash=${buy.tx}&apikey=${BSCSCAN_API_KEY}`;
-                  const txDetailResponse = await fetch(txDetailUrl);
-                  const txDetailData = await txDetailResponse.json();
-                  
-                  if (txDetailData.result && txDetailData.result.value) {
-                    bnbSpent = parseFloat(ethers.formatEther(txDetailData.result.value));
-                  }
-                  
-                  // Also check internal transactions for BNB sent from the wallet
-                  if (bnbSpent === 0) {
-                    const internalTxUrl = `https://api.etherscan.io/v2/api?chainid=56&module=account&action=txlistinternal&txhash=${buy.tx}&apikey=${BSCSCAN_API_KEY}`;
+        // For sells, fetch internal transactions to get BNB received
+        // Also check if there's a corresponding BNB transaction
+        for (const sell of sells) {
+          try {
+            let bnbReceived = 0;
+            const txHash = sell.tx.toLowerCase();
+            
+            // Method 1: Check if there's a BNB transaction TO the wallet around the same time
+            // (for DEX swaps, BNB is received in a separate transaction or internal tx)
+            const sellTimestamp = sell.timestamp;
+            const relatedBnbTx = allBnbTxs.find((tx: any) => {
+              const txTime = parseInt(tx.timeStamp) * 1000;
+              return tx.to && tx.to.toLowerCase() === address.toLowerCase() &&
+                     Math.abs(txTime - sellTimestamp) < 5000 && // Within 5 seconds
+                     tx.value && tx.value !== '0';
+            });
+            
+            if (relatedBnbTx) {
+              bnbReceived = parseFloat(ethers.formatEther(relatedBnbTx.value));
+            }
+            
+            // Method 2: Try internal transactions API
+            if (bnbReceived === 0) {
+              try {
+                const internalTxUrl = `${ETHERSCAN_API_BASE}&module=account&action=txlistinternal&address=${address}&txhash=${sell.tx}&apikey=${BSCSCAN_API_KEY}`;
                     const internalTxResponse = await fetch(internalTxUrl);
                     const internalTxData = await internalTxResponse.json();
                     
                     if (internalTxData.status === '1' && Array.isArray(internalTxData.result)) {
-                      // Sum up all BNB sent FROM the wallet address in internal transactions
                       internalTxData.result.forEach((internalTx: any) => {
-                        if (internalTx.from && internalTx.from.toLowerCase() === address.toLowerCase()) {
+                    if (internalTx.to && internalTx.to.toLowerCase() === address.toLowerCase() &&
+                        internalTx.hash && internalTx.hash.toLowerCase() === txHash) {
                           const value = parseFloat(ethers.formatEther(internalTx.value || '0'));
-                          bnbSpent += value;
-                        }
-                      });
+                      bnbReceived += value;
                     }
-                  }
-                  
-                  if (bnbSpent > 0) {
-                    totalBoughtBNB += bnbSpent;
-                    buy.bnbValue = bnbSpent;
-                  }
-                } catch (err) {
-                  console.error(`Error fetching BNB value for buy tx ${buy.tx}:`, err);
+                  });
                 }
+              } catch (internalErr) {
+                // Continue to next method
               }
-              
-              // Fetch internal transactions for sell transactions to get BNB value received
-              // For DEX swaps, BNB received is in internal transactions, not the main transaction
-              for (const sell of sells) {
-                try {
-                  let bnbReceived = 0;
-                  
-                  // Method 1: Try internal transactions API
-                  try {
-                    const internalTxUrl = `https://api.etherscan.io/v2/api?chainid=56&module=account&action=txlistinternal&txhash=${sell.tx}&apikey=${BSCSCAN_API_KEY}`;
-                    const internalTxResponse = await fetch(internalTxUrl);
-                    const internalTxData = await internalTxResponse.json();
-                    
-                    console.log(`Internal TX for sell ${sell.tx}:`, JSON.stringify(internalTxData, null, 2));
-                    
-                    if (internalTxData.status === '1' && Array.isArray(internalTxData.result) && internalTxData.result.length > 0) {
-                      // Sum up all BNB received by the wallet address in internal transactions
-                      internalTxData.result.forEach((internalTx: any) => {
-                        if (internalTx.to && internalTx.to.toLowerCase() === address.toLowerCase()) {
-                          const value = parseFloat(ethers.formatEther(internalTx.value || '0'));
-                          bnbReceived += value;
-                          console.log(`Found BNB received: ${value} from internal tx`);
-                        }
-                      });
-                    }
-                  } catch (internalErr) {
-                    console.error(`Error fetching internal transactions for ${sell.tx}:`, internalErr);
-                  }
-                  
-                  // Method 2: If no internal transactions, try getting transaction receipt and check balance changes
+            }
+            
+            // Method 3: Try getting internal transactions for the address and match by timestamp (limit to 100)
                   if (bnbReceived === 0) {
                     try {
-                      const txReceiptUrl = `https://api.etherscan.io/v2/api?chainid=56&module=proxy&action=eth_getTransactionReceipt&txhash=${sell.tx}&apikey=${BSCSCAN_API_KEY}`;
-                      const txReceiptResponse = await fetch(txReceiptUrl);
-                      const txReceiptData = await txReceiptResponse.json();
-                      
-                      if (txReceiptData.result) {
-                        // Check if there's a balance change in the receipt
-                        // For DEX swaps, the BNB might be in the receipt's balance changes
-                        console.log(`Transaction receipt for ${sell.tx}:`, JSON.stringify(txReceiptData.result, null, 2));
-                      }
-                    } catch (receiptErr) {
-                      console.error(`Error fetching receipt for ${sell.tx}:`, receiptErr);
+                const allInternalUrl = `${ETHERSCAN_API_BASE}&module=account&action=txlistinternal&address=${address}&page=1&offset=100&sort=asc&apikey=${BSCSCAN_API_KEY}`;
+                const allInternalResponse = await fetch(allInternalUrl);
+                const allInternalData = await allInternalResponse.json();
+                
+                if (allInternalData.status === '1' && Array.isArray(allInternalData.result)) {
+                  allInternalData.result.forEach((internalTx: any) => {
+                    const internalTime = parseInt(internalTx.timeStamp || '0') * 1000;
+                    if (internalTx.to && internalTx.to.toLowerCase() === address.toLowerCase() &&
+                        Math.abs(internalTime - sellTimestamp) < 5000) {
+                      const value = parseFloat(ethers.formatEther(internalTx.value || '0'));
+                      bnbReceived += value;
                     }
-                  }
-                  
-                  // Method 3: Calculate from token amount and price (fallback estimation)
-                  if (bnbReceived === 0 && sell.amount > 0 && tokenPrice > 0) {
-                    // Estimate BNB received based on current token price
-                    // This is an approximation - actual value would need historical price data
-                    const estimatedUSD = sell.amount * tokenPrice;
-                    if (bnbPrice > 0) {
-                      bnbReceived = estimatedUSD / bnbPrice;
-                      console.log(`Estimated BNB from price calculation: ${bnbReceived} for ${sell.amount} tokens`);
+                  });
+                }
+              } catch (err) {
+                // Continue
                     }
                   }
                   
                   if (bnbReceived > 0) {
                     totalSoldBNB += bnbReceived;
                     sell.bnbValue = bnbReceived;
-                    console.log(`Total BNB received so far: ${totalSoldBNB}`);
-                  } else {
-                    console.warn(`Could not determine BNB received for sell tx ${sell.tx}`);
                   }
                 } catch (err) {
                   console.error(`Error fetching BNB value for sell tx ${sell.tx}:`, err);
                 }
               }
-            } catch (error) {
-              console.error('Error fetching BNB values:', error);
-            }
-          }
-        } else {
-          console.log('API Response Status:', txData.status);
-          console.log('API Message:', txData.message || 'No message');
-          console.log('Full Response:', JSON.stringify(txData, null, 2));
-          
-          // Try fallback to old BSCScan API if v2 fails
-          if (txData.message && txData.message.includes('Invalid')) {
-            console.log('Trying fallback to old BSCScan API...');
-            try {
-              const fallbackUrl = `https://api.bscscan.com/api?module=account&action=tokentx&contractaddress=${CONTRACT_ADDRESS}&address=${address}&page=1&offset=100&sort=asc&apikey=${BSCSCAN_API_KEY}`;
-              const fallbackResponse = await fetch(fallbackUrl);
-              const fallbackData = await fallbackResponse.json();
-              
-              if (fallbackData.status === '1' && Array.isArray(fallbackData.result)) {
-                transactions = fallbackData.result;
-                console.log(`Fallback API found ${transactions.length} transactions`);
-                
-                transactions.forEach((tx: any) => {
-                  const value = parseFloat(ethers.formatUnits(tx.value, decimals));
-                  const timestamp = parseInt(tx.timeStamp) * 1000;
-                  
-                  if (tx.to.toLowerCase() === address.toLowerCase()) {
-                    buys.push({ amount: value, timestamp, tx: tx.hash });
-                    totalBought += value;
-                  } else if (tx.from.toLowerCase() === address.toLowerCase()) {
-                    sells.push({ amount: value, timestamp, tx: tx.hash });
-                    totalSold += value;
-                  }
-                });
-              }
-            } catch (fallbackError) {
-              console.error('Fallback API also failed:', fallbackError);
-            }
-          }
-        }
+        
+        console.log(`Processed: ${buys.length} buys, ${sells.length} sells`);
+        console.log(`Total BNB spent: ${totalBoughtBNB}, Total BNB received: ${totalSoldBNB}`);
       } else {
-        console.log('No BscScan API key provided');
+        console.log('No Etherscan API key provided');
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -349,42 +335,73 @@ export async function GET(request: NextRequest) {
 
     if (buys.length > 0 && sells.length > 0) {
       // FIFO matching: Match buys to sells
-      const matchedTrades: any[] = [];
-      let buyQueue = [...buys];
-      let sellQueue = [...sells];
+      // Sort buys and sells by timestamp to ensure proper FIFO matching
+      const sortedBuys = [...buys].sort((a, b) => a.timestamp - b.timestamp);
+      const sortedSells = [...sells].sort((a, b) => a.timestamp - b.timestamp);
       
-      for (const sell of sellQueue) {
+      const matchedTrades: any[] = [];
+      let buyQueue = sortedBuys.map(b => ({ ...b, remainingAmount: b.amount }));
+      
+      for (const sell of sortedSells) {
         let remainingSell = sell.amount;
         
         while (remainingSell > 0 && buyQueue.length > 0) {
           const buy = buyQueue[0];
-          const matchAmount = Math.min(remainingSell, buy.amount);
+          const matchAmount = Math.min(remainingSell, buy.remainingAmount);
           
           matchedTrades.push({
             buyTime: buy.timestamp,
             sellTime: sell.timestamp,
             amount: matchAmount,
-            buyAmount: buy.amount
+            buyAmount: buy.amount, // Original buy amount
+            buyTx: buy.tx,
+            sellTx: sell.tx,
+            buyBnbValue: buy.bnbValue,
+            sellBnbValue: sell.bnbValue
           });
           
           remainingSell -= matchAmount;
-          buy.amount -= matchAmount;
+          buy.remainingAmount -= matchAmount;
           
-          if (buy.amount <= 0) {
+          if (buy.remainingAmount <= 0) {
             buyQueue.shift();
           }
         }
       }
 
-      // Calculate metrics
+      // Calculate metrics with actual BNB values
       const holdTimes: number[] = [];
       let lossSells = 0;
+      let totalLossAmount = 0;
       let fullDumps = 0;
       let soldWithin24h = 0;
       
       matchedTrades.forEach((match) => {
         const holdTimeHours = (match.sellTime - match.buyTime) / (1000 * 60 * 60);
         holdTimes.push(holdTimeHours);
+        
+        // Calculate if this was a loss using BNB values from the match
+        if (match.buyBnbValue && match.buyBnbValue > 0 && match.sellBnbValue && match.sellBnbValue > 0) {
+          // We have both BNB values, calculate per-token prices
+          const buyBnbPerToken = match.buyBnbValue / match.buyAmount;
+          const sellBnbPerToken = match.sellBnbValue / match.amount;
+          const matchBnbSpent = match.amount * buyBnbPerToken;
+          const matchBnbReceived = match.amount * sellBnbPerToken;
+          
+          if (matchBnbReceived < matchBnbSpent) {
+            lossSells++;
+            totalLossAmount += match.amount;
+          }
+        } else if (match.buyBnbValue && match.buyBnbValue > 0 && (!match.sellBnbValue || match.sellBnbValue === 0)) {
+          // If we have buy BNB but not sell BNB, estimate based on current price
+          // This is less accurate but better than nothing
+          const buyBnbPerToken = match.buyBnbValue / match.buyAmount;
+          const currentBnbPerToken = tokenPrice > 0 && bnbPrice > 0 ? tokenPrice / bnbPrice : 0;
+          if (currentBnbPerToken > 0 && currentBnbPerToken < buyBnbPerToken) {
+            lossSells++;
+            totalLossAmount += match.amount;
+          }
+        }
         
         // Check if full dump (sold 98%+ of buy amount)
         if (match.amount >= match.buyAmount * 0.98) {
@@ -395,8 +412,6 @@ export async function GET(request: NextRequest) {
         if (holdTimeHours <= 24) {
           soldWithin24h += match.amount;
         }
-        
-        // Note: We can't determine loss without price data, so we skip this for now
       });
 
       // Average Hold Time (AHT)
@@ -418,13 +433,18 @@ export async function GET(request: NextRequest) {
       const fullDumpFraction = matchedTrades.length > 0 
         ? fullDumps / matchedTrades.length 
         : 0;
+      
+      // Loss fraction - percentage of sells that were at a loss
+      const lossFraction = matchedTrades.length > 0 
+        ? lossSells / matchedTrades.length 
+        : 0;
 
       // Store metrics
       metrics = {
         aht_hours: AHT,
         ttfs_hours: TTFS,
         sell_ratio_24h: sellRatio24h,
-        loss_fraction: 0, // Can't calculate without price history
+        loss_fraction: lossFraction,
         full_dump_fraction: fullDumpFraction
       };
 
@@ -443,11 +463,11 @@ export async function GET(request: NextRequest) {
       const scoreHoldTime = scoreByThreshold(AHT, AHT_THRESHOLD);
       const scoreTTFS = scoreByThreshold(TTFS, TTFS_THRESHOLD);
       const scoreSellRatio = Math.min(sellRatio24h * 100, 100);
-      const scoreLoss = 0; // Can't calculate without price data
+      const scoreLoss = lossFraction * 100; // Now we can calculate this!
       const scoreFullDumps = fullDumpFraction * 100;
 
       // Weighted combination
-      const weights = [0.30, 0.25, 0.30, 0.0, 0.15]; // Adjusted weights (no loss data)
+      const weights = [0.25, 0.20, 0.25, 0.15, 0.15]; // Include loss data now
       jeetScore = Math.round(
         (scoreHoldTime * weights[0] +
          scoreTTFS * weights[1] +
@@ -466,6 +486,9 @@ export async function GET(request: NextRequest) {
       }
       if (sellRatio24h > 0.5) {
         reasons.push(`Sold ${(sellRatio24h * 100).toFixed(0)}% within 24h`);
+      }
+      if (lossFraction > 0.5) {
+        reasons.push(`${(lossFraction * 100).toFixed(0)}% of sells were at a loss`);
       }
       if (fullDumpFraction > 0.3) {
         reasons.push(`${(fullDumpFraction * 100).toFixed(0)}% of sells were full position dumps`);
@@ -488,8 +511,18 @@ export async function GET(request: NextRequest) {
     // Clamp score between 0-100
     jeetScore = Math.max(0, Math.min(100, jeetScore));
 
-    // Calculate profit/loss (simplified)
-    const profitLoss = totalSold - totalBought;
+    // Calculate profit/loss using actual BNB values (more accurate)
+    // If we have BNB values, use those; otherwise fall back to token amounts
+    let profitLoss = 0;
+    if (totalBoughtBNB > 0 && totalSoldBNB > 0) {
+      // Convert BNB profit/loss to token equivalent for display
+      const avgBuyPrice = totalBought / totalBoughtBNB; // tokens per BNB
+      const bnbProfitLoss = totalSoldBNB - totalBoughtBNB;
+      profitLoss = bnbProfitLoss * avgBuyPrice;
+    } else {
+      // Fallback to token amount difference
+      profitLoss = totalSold - totalBought;
+    }
 
     // Get first and last transaction dates
     const firstTx = transactions.length > 0 
@@ -512,36 +545,46 @@ export async function GET(request: NextRequest) {
       : totalSold * tokenPrice; // Fallback to token price if BNB price not available
     const profitLossUSD = totalSoldUSD - totalBoughtUSD;
 
-    // Calculate estimated market cap at first buy time
-    // Estimate based on actual purchase cost vs current value
+    // Calculate market cap at buy time using actual BNB spent
     let marketCapAtBuy = marketCap;
-    if (buys.length > 0 && tokenPrice > 0 && totalBoughtUSD > 0) {
-      // totalBoughtUSD = current value of tokens bought (at current price)
-      // profitLossUSD = profit/loss from trading
-      // Actual amount spent = totalBoughtUSD - profitLossUSD (if profit) or totalBoughtUSD + |profitLossUSD| (if loss)
-      // Price change ratio = current_value / actual_cost
-      // Market cap at buy = current market cap / price_change_ratio
+    if (buys.length > 0 && tokenPrice > 0 && totalBoughtBNB > 0 && bnbPrice > 0 && totalBought > 0) {
+      // Calculate the price per token at buy time
+      // totalBoughtBNB = BNB spent
+      // totalBought = tokens received
+      // buyPricePerToken = totalBoughtBNB / totalBought (BNB per token)
+      // buyPriceUSD = buyPricePerToken * bnbPrice
+      // currentPriceUSD = tokenPrice
+      // priceRatio = buyPriceUSD / currentPriceUSD
+      // marketCapAtBuy = currentMarketCap / priceRatio
       
-      const actualCostUSD = totalBoughtUSD - profitLossUSD; // This is what they actually spent
-      if (actualCostUSD > 0) {
-        const priceChangeRatio = totalBoughtUSD / actualCostUSD;
-        marketCapAtBuy = marketCap / priceChangeRatio;
+      const buyPricePerTokenBNB = totalBoughtBNB / totalBought;
+      const buyPriceUSD = buyPricePerTokenBNB * bnbPrice;
+      
+      if (buyPriceUSD > 0 && tokenPrice > 0) {
+        const priceRatio = buyPriceUSD / tokenPrice;
+        if (priceRatio > 0) {
+          marketCapAtBuy = marketCap / priceRatio;
+        }
       }
     }
     
-    // Calculate market cap at sell time
-    // Estimate based on actual sell proceeds vs current value
+    // Calculate market cap at sell time using actual BNB received
     let marketCapAtSell = marketCap;
-    if (sells.length > 0 && tokenPrice > 0 && totalSoldUSD > 0) {
-      // totalSoldUSD = current value of tokens sold (at current price)
-      // But we have actual BNB received, so we can calculate the price at sell time
-      // Market cap at sell = current market cap * (sell_price / current_price)
-      // sell_price = totalSoldUSD / totalSold (tokens)
-      // current_price = tokenPrice
+    if (sells.length > 0 && tokenPrice > 0 && totalSoldBNB > 0 && bnbPrice > 0 && totalSold > 0) {
+      // Calculate the price per token at sell time
+      // totalSoldBNB = BNB received
+      // totalSold = tokens sold
+      // sellPricePerToken = totalSoldBNB / totalSold (BNB per token)
+      // sellPriceUSD = sellPricePerToken * bnbPrice
+      // currentPriceUSD = tokenPrice
+      // priceRatio = sellPriceUSD / currentPriceUSD
+      // marketCapAtSell = currentMarketCap * priceRatio
       
-      const sellPrice = totalSold > 0 ? totalSoldUSD / totalSold : tokenPrice;
-      if (sellPrice > 0 && tokenPrice > 0) {
-        const priceRatio = sellPrice / tokenPrice;
+      const sellPricePerTokenBNB = totalSoldBNB / totalSold;
+      const sellPriceUSD = sellPricePerTokenBNB * bnbPrice;
+      
+      if (sellPriceUSD > 0 && tokenPrice > 0) {
+        const priceRatio = sellPriceUSD / tokenPrice;
         marketCapAtSell = marketCap * priceRatio;
       }
     }
